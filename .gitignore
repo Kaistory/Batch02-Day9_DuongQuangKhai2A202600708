@@ -3,6 +3,7 @@
 **cache**
 .claude
 **SOLUTION**
+!Lab-Solution.md
 .logs
 .playwright-mcp
 node_modules
