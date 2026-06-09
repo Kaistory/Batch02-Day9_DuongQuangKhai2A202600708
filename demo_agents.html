@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legal Multi-Agent — Demo tương tác Stage 4 / Stage 5</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --line:#475569;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --accent2:#818cf8;
+    --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --pill:#0ea5e9;
+    --tax:#f59e0b; --comp:#a78bfa; --law:#38bdf8; --cust:#34d399; --reg:#f472b6; --agg:#fb7185;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:linear-gradient(180deg,#13203b,#0f172a)}
+  header h1{font-size:19px;margin:0;font-weight:700}
+  header .sub{color:var(--muted);font-size:13px}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
+
+  /* toggle */
+  .toggle{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px}
+  .toggle button{border:0;background:transparent;color:var(--muted);padding:8px 18px;border-radius:999px;cursor:pointer;font-size:14px;font-weight:600;transition:.18s}
+  .toggle button.active{background:var(--accent);color:#06283d}
+  .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:18px 0}
+  .btn{border:0;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+  .btn-run{background:var(--ok);color:#053527}
+  .btn-run:hover{filter:brightness(1.08)}
+  .btn-reset{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .clock{font-variant-numeric:tabular-nums;font-size:15px;color:var(--accent);font-weight:700;margin-left:auto;background:var(--panel);padding:8px 14px;border-radius:8px;border:1px solid var(--line)}
+  .speed{font-size:12px;color:var(--muted)}
+
+  .grid{display:grid;grid-template-columns:1.55fr 1fr;gap:18px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h3{margin:0 0 10px;font-size:14px;letter-spacing:.3px;color:var(--muted);text-transform:uppercase}
+
+  /* canvas */
+  .stage{position:relative;height:430px;background:radial-gradient(900px 400px at 50% -10%,#1b2942,transparent),var(--panel2);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  svg.edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .node{position:absolute;transform:translate(-50%,-50%);width:128px;background:#0b1626;border:2px solid var(--line);border-radius:10px;padding:9px 10px;text-align:center;transition:.2s;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+  .node .nm{font-size:12.5px;font-weight:700}
+  .node .pt{font-size:10.5px;color:var(--muted);margin-top:1px}
+  .node .ms{font-size:10px;color:var(--accent);margin-top:3px;min-height:13px;font-variant-numeric:tabular-nums}
+  .node.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.25),0 0 22px rgba(56,189,248,.45);transform:translate(-50%,-50%) scale(1.06)}
+  .node.done{border-color:var(--ok)}
+  .node.err{border-color:var(--bad);box-shadow:0 0 0 3px rgba(248,113,113,.25)}
+  .node[data-role=tax]{border-left:5px solid var(--tax)}
+  .node[data-role=comp]{border-left:5px solid var(--comp)}
+  .node[data-role=law]{border-left:5px solid var(--law)}
+  .node[data-role=cust]{border-left:5px solid var(--cust)}
+  .node[data-role=reg]{border-left:5px solid var(--reg)}
+  .node[data-role=agg]{border-left:5px solid var(--agg)}
+  .dot{position:absolute;width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);transform:translate(-50%,-50%);opacity:0;z-index:5}
+  .badge{position:absolute;top:10px;left:12px;font-size:11px;color:var(--muted);background:#0b1626aa;padding:3px 9px;border-radius:6px;border:1px solid var(--line)}
+
+  /* log */
+  .log{height:430px;overflow-y:auto;font-size:12.5px;font-family:'Cascadia Code',Consolas,monospace}
+  .log .row{padding:6px 8px;border-bottom:1px solid #2a3850;display:flex;gap:8px;animation:fade .25s}
+  .log .t{color:var(--accent);font-variant-numeric:tabular-nums;flex:0 0 52px}
+  .log .m{color:var(--text)}
+  .log .tag{font-size:10px;padding:1px 6px;border-radius:4px;flex:0 0 auto;height:16px;align-self:center}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+
+  /* latency */
+  .lat{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:18px}
+  @media(max-width:760px){.lat{grid-template-columns:1fr}}
+  .latcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center}
+  .latcard .v{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+  .latcard .l{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .latcard.s5 .v{color:var(--bad)} .latcard.s4 .v{color:var(--warn)} .latcard.opt .v{color:var(--ok)}
+  .bar{height:14px;border-radius:7px;background:#0b1626;overflow:hidden;margin-top:10px;border:1px solid var(--line)}
+  .bar>i{display:block;height:100%;border-radius:7px}
+  .note{font-size:12px;color:var(--muted);margin-top:6px}
+
+  .explain{margin-top:18px}
+  .explain ul{margin:8px 0 0;padding-left:20px}
+  .explain li{margin:5px 0}
+  .kpill{display:inline-block;background:#0b1626;border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-family:monospace;font-size:12px;color:var(--accent)}
+  .tip{background:#13243b;border-left:4px solid var(--accent);padding:10px 14px;border-radius:8px;font-size:13px;margin-top:14px;color:#cfe3f5}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+
+  /* A/B race */
+  .race{display:flex;flex-direction:column;gap:18px;margin:8px 0 4px}
+  .lane-h{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px;font-weight:600}
+  .lane-t{font-variant-numeric:tabular-nums;color:var(--accent)}
+  .track{position:relative;height:30px;background:#0b1626;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:8px;transition:none}
+  .fill.base{background:linear-gradient(90deg,#d97706,#fbbf24)}
+  .fill.opt{background:linear-gradient(90deg,#059669,#34d399)}
+  .finish{position:absolute;top:0;bottom:0;width:2px;background:#ffffff55;border-right:1px dashed #ffffff66}
+  .finish span{position:absolute;top:-18px;left:4px;font-size:10px;color:var(--muted);white-space:nowrap}
+  .race-foot{display:flex;align-items:center;gap:18px;margin-top:18px;flex-wrap:wrap}
+  .saved{font-size:15px;color:var(--muted)}
+  .saved b{color:var(--ok);font-size:19px}
+
+  /* Ask-your-own-question */
+  .ask{background:linear-gradient(180deg,#16243d,#13203a);border:1px solid var(--accent);border-radius:14px;padding:16px;margin:18px 0}
+  .ask h3{margin:0 0 10px;font-size:14px;color:var(--accent);text-transform:uppercase;letter-spacing:.3px}
+  .ask textarea{width:100%;background:#0b1626;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:11px;font-size:14px;font-family:inherit;resize:vertical;min-height:56px}
+  .ask-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .btn-ask{background:var(--accent);color:#06283d}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .chip{background:#0b1626;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--muted);cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--accent);color:var(--text)}
+  .answer{display:none;margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0;overflow:hidden}
+  .ans-meta{background:#0b1626;padding:10px 16px;font-size:13px;border-bottom:1px solid var(--line)}
+  .ans-meta b{color:var(--ok)}
+  .ans-body{padding:16px;font-size:13.5px;white-space:pre-wrap;max-height:440px;overflow-y:auto;line-height:1.6}
+  .ans-status{padding:18px 16px;color:var(--accent);font-size:14px}
+  .ans-err{padding:16px;color:var(--warn);font-size:13.5px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>⚖️ Legal Multi-Agent — Demo tương tác Agent</h1>
+    <div class="sub">Stage 4 (in-process) ⟷ Stage 5 (distributed A2A) · số liệu latency đo thật với <b>gemini-2.5-flash-lite</b></div>
+  </div>
+  <div class="toggle" style="margin-left:auto">
+    <button id="t4" class="active" onclick="setStage(4)">Stage 4 · In-Process</button>
+    <button id="t5" onclick="setStage(5)">Stage 5 · Distributed A2A</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="controls">
+    <button class="btn btn-run" id="runBtn" onclick="runSim()">▶ Chạy mô phỏng</button>
+    <button class="btn btn-reset" onclick="resetSim()">↺ Reset</button>
+    <label class="speed">Tốc độ: <select id="speed" onchange="SPEED=+this.value">
+      <option value="6">6× (nhanh)</option>
+      <option value="3" selected>3×</option>
+      <option value="1">1× (thời gian thật)</option>
+    </select></label>
+    <span class="speed" id="optToggleWrap" style="display:none">
+      <label><input type="checkbox" id="optChk" onchange="resetSim()"> Bật tối ưu (song song)</label>
+    </span>
+    <div class="clock">⏱ <span id="clock">0.00</span>s</div>
+  </div>
+
+  <!-- Ask your own question -->
+  <div class="ask">
+    <h3>🤖 Nhập câu hỏi của bạn — chạy multi-agent THẬT</h3>
+    <textarea id="qInput" placeholder="VD: Công ty vi phạm hợp đồng, trốn thuế và làm rò rỉ dữ liệu khách hàng thì hậu quả pháp lý là gì?"></textarea>
+    <div class="ask-row">
+      <button class="btn btn-ask" id="askBtn" onclick="askAgent()">🚀 Hỏi agent</button>
+      <span class="speed">Chế độ chạy: theo toggle <b>Stage 4</b> + tick <i>"Bật tối ưu"</i> ở trên. Cần chạy qua <code>demo_server.py</code>.</span>
+    </div>
+    <div class="chips">
+      <span class="chip" onclick="setQ(this)">Công ty vi phạm hợp đồng và trốn thuế thì bị phạt thế nào?</span>
+      <span class="chip" onclick="setQ(this)">Doanh nghiệp làm rò rỉ dữ liệu khách hàng, hậu quả pháp lý và compliance?</span>
+      <span class="chip" onclick="setQ(this)">Người lao động bị sa thải trái luật có quyền lợi gì?</span>
+    </div>
+    <div class="answer" id="answer"></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3 id="canvasTitle">Sơ đồ tương tác</h3>
+      <div class="stage" id="stage">
+        <span class="badge" id="badge"></span>
+        <svg class="edges" id="edges" viewBox="0 0 900 430" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="card">
+      <h3>Nhật ký sự kiện (real-time)</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <!-- Latency -->
+  <h3 style="margin:26px 0 0;color:var(--muted);text-transform:uppercase;font-size:14px;letter-spacing:.3px">📊 So sánh Latency (đo thật)</h3>
+  <div class="lat">
+    <div class="latcard s5"><div class="v">23.59<span style="font-size:16px">s</span></div><div class="l">Stage 5 — Distributed A2A</div>
+      <div class="bar"><i style="width:100%;background:var(--bad)"></i></div><div class="note">5 service · HTTP · Registry discovery</div></div>
+    <div class="latcard s4"><div class="v">8.09<span style="font-size:16px">s</span></div><div class="l">Stage 4 — In-Process (baseline)</div>
+      <div class="bar"><i style="width:34.3%;background:var(--warn)"></i></div><div class="note">1 process · gọi hàm trực tiếp</div></div>
+    <div class="latcard opt"><div class="v">~5.8<span style="font-size:16px">s</span></div><div class="l">Stage 4 — Tối ưu (song song)</div>
+      <div class="bar"><i style="width:24.6%;background:var(--ok)"></i></div><div class="note">fan-out + keyword routing</div></div>
+  </div>
+
+  <!-- A/B RACE -->
+  <div class="card" style="margin-top:18px">
+    <h3>⚡ Đối chiếu A/B — Thời gian xử lý giảm được sau khi áp dụng tối ưu (Stage 4)</h3>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Hai cấu hình chạy trên cùng trục thời gian. Thanh <b style="color:var(--ok)">Tối ưu</b> về đích trước — khoảng trống còn lại chính là thời gian tiết kiệm được.</p>
+    <div class="race">
+      <div class="lane">
+        <div class="lane-h"><span>🐢 Baseline — tuần tự (analyze → route → specialists → aggregate)</span><span class="lane-t" id="rt-base">0.00s</span></div>
+        <div class="track"><div class="fill base" id="rf-base"></div></div>
+      </div>
+      <div class="lane">
+        <div class="lane-h"><span>🚀 Tối ưu — fan-out song song + keyword routing</span><span class="lane-t" id="rt-opt">0.00s</span></div>
+        <div class="track"><div class="fill opt" id="rf-opt"></div><div class="finish" id="optFinish" style="left:72.1%"><span>đích tối ưu</span></div></div>
+      </div>
+    </div>
+    <div class="race-foot">
+      <button class="btn btn-run" onclick="raceAB()">⚡ Chạy đối chiếu A/B</button>
+      <div class="saved" id="saved">Tiết kiệm: <b id="savedVal">— bấm nút để chạy</b></div>
+    </div>
+  </div>
+
+  <div class="card explain" >
+    <h3>🚀 Câu hỏi 1 — Latency là bao nhiêu?</h3>
+    <p>Tổng thời gian trả lời <b>1 câu hỏi</b> (đo bằng <code>time.perf_counter()</code> quanh lúc gửi → nhận response, model <span class="kpill">gemini-2.5-flash-lite</span>):</p>
+    <ul>
+      <li><b>Stage 5 (phân tán):</b> <b style="color:var(--bad)">23.59 giây</b> — request đi qua <span class="kpill">test_client → Customer(10100) → Law(10101) → Tax(10102) ‖ Compliance(10103) → aggregate</span>, mỗi hop là 1 lời gọi HTTP + serialize + 1 vòng Gemini.</li>
+      <li><b>Stage 4 (in-process):</b> <b style="color:var(--warn)">8.09 giây</b> — cùng logic nhưng gọi hàm trực tiếp trong 1 process. <b>Chênh ~15.5s</b> chính là chi phí của kiến trúc phân tán (HTTP, A2A protocol, ReAct sub-agent, nhiều hop).</li>
+    </ul>
+
+    <h3 style="margin-top:18px">🎯 Câu hỏi 2 — Giảm latency thế nào?</h3>
+    <p>Phân tích per-node baseline Stage 4 cho thấy <b>chuỗi tuần tự</b> là thủ phạm:</p>
+    <p style="font-family:monospace;font-size:12.5px;color:var(--muted);background:#0b1626;padding:10px;border-radius:8px">
+      analyze_law <b style="color:#fff">2.65s</b> → check_routing(LLM) <b style="color:#fff">0.93s</b> → [tax‖compliance] <b style="color:#fff">1.93s</b> → aggregate <b style="color:#fff">2.59s</b> = <b style="color:var(--warn)">8.09s</b>
+    </p>
+    <p><b>Phương án (đã đo thật):</b></p>
+    <ul>
+      <li><b>① Bỏ LLM router</b> → dùng <b>keyword routing</b> (tức thời, 0 lời gọi LLM): cắt thẳng <span class="kpill">0.93s</span> khỏi critical path.</li>
+      <li><b>② Chạy <code>analyze_law</code> SONG SONG</b> với tax/compliance — vì cả 3 chỉ cần <code>question</code>, không phụ thuộc nhau. Dùng <code>set_conditional_entry_point</code> + <code>Send()</code> để fan-out ngay từ đầu.</li>
+    </ul>
+    <p>Kết quả đo: khối fan-out song song hoàn tất ở <b style="color:var(--ok)">3.24s</b> (so với baseline mất <b>5.51s</b> mới tới aggregate → <b>nhanh hơn 41%</b> ở pha tiền-tổng-hợp). Cộng <code>aggregate</code> 2.59s ⇒ tổng <b style="color:var(--ok)">≈5.8s</b>, giảm <b style="color:var(--ok)">~28%</b> so với 8.09s.</p>
+    <div class="tip">💡 Bấm sang <b>Stage 4</b>, tick <b>"Bật tối ưu (song song)"</b> rồi <b>Chạy mô phỏng</b> để thấy 3 node khởi động đồng thời và đồng hồ về đích sớm hơn. ⚠️ <code>aggregate</code> của bản tối ưu được chiếu từ baseline do quota Gemini/ngày (20 req) đã cạn khi test.</div>
+  </div>
+</div>
+
+<script>
+let SPEED = 3;
+let STAGE = 4;
+let timers = [];
+let running = false;
+
+/* ---- Node layouts (toạ độ trên viewBox 900x430) ---- */
+const LAYOUTS = {
+  4: [
+    {id:'analyze_law', nm:'analyze_law', pt:'Luật sư trưởng', role:'law',  x:160, y:80},
+    {id:'check_routing', nm:'check_routing', pt:'Router (LLM)', role:'reg', x:450, y:80},
+    {id:'call_tax_specialist', nm:'call_tax', pt:'ReAct + search_tax', role:'tax', x:720, y:160},
+    {id:'call_compliance_specialist', nm:'call_compliance', pt:'ReAct + search_comp', role:'comp', x:720, y:300},
+    {id:'aggregate', nm:'aggregate', pt:'Tổng hợp', role:'agg', x:360, y:360},
+  ],
+  5: [
+    {id:'client', nm:'test_client', pt:'Người dùng', role:'cust', x:90, y:215},
+    {id:'registry', nm:'Registry', pt:':10000 discovery', role:'reg', x:450, y:55},
+    {id:'customer', nm:'Customer Agent', pt:':10100', role:'cust', x:300, y:215},
+    {id:'law', nm:'Law Agent', pt:':10101', role:'law', x:540, y:215},
+    {id:'tax', nm:'Tax Agent', pt:':10102 ReAct', role:'tax', x:790, y:130},
+    {id:'compliance', nm:'Compliance', pt:':10103 ReAct', role:'comp', x:790, y:310},
+  ]
+};
+
+/* ---- Timelines: [startSec, endSec, fromNodeId, toNodeId, label, tag] ---- */
+const TIMELINES = {
+  '4-baseline':{ total:8.09, steps:[
+    [0.00,2.65,'analyze_law','analyze_law','Luật sư trưởng phân tích pháp lý (Gemini)','LLM'],
+    [2.65,3.58,'analyze_law','check_routing','Router LLM quyết định needs_tax/compliance','LLM'],
+    [3.58,5.51,'check_routing','call_tax_specialist','Send → Tax specialist (ReAct, song song)','LLM'],
+    [3.58,5.51,'check_routing','call_compliance_specialist','Send → Compliance specialist (ReAct, song song)','LLM'],
+    [5.51,5.58,'call_tax_specialist','aggregate','◀ Tax → aggregate','FAST'],
+    [5.51,5.58,'call_compliance_specialist','aggregate','◀ Compliance → aggregate','FAST'],
+    [5.58,8.09,'aggregate','aggregate','aggregate: tổng hợp law+tax+compliance → memo cuối (Gemini)','LLM'],
+  ]},
+  '4-opt':{ total:5.83, steps:[
+    [0.00,0.02,'analyze_law','analyze_law','⚡ fan_out: keyword routing TỨC THỜI (0 LLM) → dispatch 3 nhánh','FAST'],
+    [0.02,2.67,'analyze_law','analyze_law','analyze_law — SONG SONG (Gemini)','LLM'],
+    [0.02,2.47,'call_tax_specialist','call_tax_specialist','Tax specialist — SONG SONG (ReAct)','LLM'],
+    [0.02,3.24,'call_compliance_specialist','call_compliance_specialist','Compliance — SONG SONG (ReAct)','LLM'],
+    [3.24,3.30,'analyze_law','aggregate','◀ Law → aggregate','FAST'],
+    [3.24,3.30,'call_tax_specialist','aggregate','◀ Tax → aggregate','FAST'],
+    [3.24,3.30,'call_compliance_specialist','aggregate','◀ Compliance → aggregate','FAST'],
+    [3.30,5.83,'aggregate','aggregate','aggregate — tổng hợp (~2.59s, chiếu từ baseline)','LLM'],
+  ]},
+  '5':{ total:23.59, steps:[
+    [0.0, 0.8,  'client','customer',   'HTTP POST câu hỏi → Customer Agent (:10100)','HTTP'],
+    [0.8, 2.5,  'customer','law',      'Customer: discover(legal_question) → delegate Law (:10101)','HTTP'],
+    [2.5, 7.0,  'law','law',           'Law: analyze_law — phân tích hợp đồng/dân sự (Gemini)','LLM'],
+    [7.0, 9.0,  'law','law',           'Law: check_routing (LLM) → needs_tax=True, needs_compliance=True','LLM'],
+    [9.0, 10.0, 'law','registry',      'Law: discover(tax_question) + discover(compliance_question)','HTTP'],
+    [10.0,10.5, 'registry','law',      'Registry trả endpoint :10102 và :10103','HTTP'],
+    [10.5,17.8, 'law','tax',           'delegate → Tax Agent — ReAct: search_tax + Gemini (SONG SONG)','HTTP'],
+    [10.5,17.2, 'law','compliance',    'delegate → Compliance Agent — ReAct (SONG SONG)','HTTP'],
+    [17.2,17.8, 'compliance','law',    '◀ Compliance trả kết quả (~4895 ký tự) → Law','HTTP'],
+    [17.8,18.4, 'tax','law',           '◀ Tax trả kết quả (~4451 ký tự) → Law','HTTP'],
+    [18.4,21.8, 'law','law',           'Law: aggregate — tổng hợp law+tax+compliance (Gemini)','LLM'],
+    [21.8,22.8, 'law','customer',      '◀ Law trả memo → Customer Agent','HTTP'],
+    [22.8,23.59,'customer','client',   '◀ Customer trả memo cuối → client (~2353 ký tự)','HTTP'],
+  ]}
+};
+
+const TAGCOLOR={LLM:'#38bdf8',HTTP:'#f472b6',FAST:'#34d399'};
+
+function curStage(){ return STAGE; }
+function curKey(){
+  if(STAGE===5) return '5';
+  return document.getElementById('optChk').checked ? '4-opt':'4-baseline';
+}
+
+function buildStage(){
+  const stage=document.getElementById('stage');
+  const edges=document.getElementById('edges');
+  [...stage.querySelectorAll('.node,.dot')].forEach(n=>n.remove());
+  edges.innerHTML='';
+  document.getElementById('badge').textContent = STAGE===4 ? 'StateGraph · 1 process' : '5 services · A2A over HTTP';
+  const nodes=LAYOUTS[STAGE];
+  // edges from timeline
+  const tl=TIMELINES[curKey()];
+  const seen=new Set();
+  tl.steps.forEach(s=>{
+    if(s[2]===s[3]) return;
+    const k=s[2]+'>'+s[3]; if(seen.has(k))return; seen.add(k);
+    const a=nodes.find(n=>n.id===s[2]), b=nodes.find(n=>n.id===s[3]);
+    if(!a||!b)return;
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',a.x);ln.setAttribute('y1',a.y);ln.setAttribute('x2',b.x);ln.setAttribute('y2',b.y);
+    ln.setAttribute('stroke','#3a4a63');ln.setAttribute('stroke-width','2');ln.setAttribute('stroke-dasharray','5 5');
+    ln.id='e_'+s[2]+'_'+s[3];
+    edges.appendChild(ln);
+  });
+  // nodes
+  nodes.forEach(n=>{
+    const el=document.createElement('div');
+    el.className='node';el.id='n_'+n.id;el.dataset.role=n.role;
+    el.style.left=(n.x/900*100)+'%';el.style.top=(n.y/430*100)+'%';
+    el.innerHTML=`<div class="nm">${n.nm}</div><div class="pt">${n.pt}</div><div class="ms" id="ms_${n.id}"></div>`;
+    stage.appendChild(el);
+  });
+  // legend
+  document.getElementById('legend').innerHTML =
+   `<span><i style="background:var(--law)"></i>Law</span><span><i style="background:var(--tax)"></i>Tax</span>
+    <span><i style="background:var(--comp)"></i>Compliance</span><span><i style="background:var(--reg)"></i>Router/Registry</span>
+    <span><i style="background:var(--agg)"></i>Aggregate</span>`+(STAGE===5?'<span><i style="background:var(--cust)"></i>Customer</span>':'');
+  document.getElementById('canvasTitle').textContent = STAGE===4
+     ? (document.getElementById('optChk').checked?'Stage 4 — Tối ưu (fan-out song song)':'Stage 4 — Baseline (tuần tự)')
+     : 'Stage 5 — Distributed A2A';
+}
+
+function nodePos(id){const n=LAYOUTS[STAGE].find(x=>x.id===id);return n?{x:n.x/900,y:n.y/430}:null;}
+
+function flyDot(from,to,durMs){
+  if(from===to) return;
+  const a=nodePos(from),b=nodePos(to); if(!a||!b)return;
+  const stage=document.getElementById('stage');
+  const d=document.createElement('div');d.className='dot';stage.appendChild(d);
+  const t0=performance.now();
+  function step(t){
+    const k=Math.min(1,(t-t0)/durMs);
+    d.style.opacity = k<0.05?String(k/0.05):(k>0.9?String((1-k)/0.1):'1');
+    d.style.left=((a.x+(b.x-a.x)*k)*100)+'%';
+    d.style.top=((a.y+(b.y-a.y)*k)*100)+'%';
+    if(k<1) requestAnimationFrame(step); else d.remove();
+  }
+  requestAnimationFrame(step);
+}
+
+function log(t,msg,tag){
+  const el=document.getElementById('log');
+  const row=document.createElement('div');row.className='row';
+  const c=TAGCOLOR[tag]||'#94a3b8';
+  row.innerHTML=`<span class="t">${t.toFixed(2)}s</span><span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}55">${tag}</span><span class="m">${msg}</span>`;
+  el.appendChild(row);el.scrollTop=el.scrollHeight;
+}
+
+function resetSim(){
+  timers.forEach(clearTimeout);timers=[];running=false;
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('log').innerHTML='';
+  document.getElementById('clock').textContent='0.00';
+  buildStage();
+}
+
+function runSim(){
+  if(running)return; resetSim(); running=true;
+  document.getElementById('runBtn').disabled=true;
+  const tl=TIMELINES[curKey()];
+  const scale=1000/SPEED;            // 1 giây thật = scale ms
+  const t0=performance.now();
+  // running clock
+  const clockEl=document.getElementById('clock');
+  const ticker=setInterval(()=>{
+    const real=(performance.now()-t0)/scale;
+    clockEl.textContent=Math.min(real,tl.total).toFixed(2);
+    if(real>=tl.total){clearInterval(ticker);clockEl.textContent=tl.total.toFixed(2);}
+  },40);
+  timers.push({__interval:ticker});
+
+  tl.steps.forEach(s=>{
+    const [st,en,from,to,label,tag]=s;
+    // start
+    timers.push(setTimeout(()=>{
+      const tn=document.getElementById('n_'+to); if(tn)tn.classList.add('active');
+      flyDot(from,to,(en-st)*scale*0.9);
+      log(st,label,tag);
+    }, st*scale));
+    // end
+    timers.push(setTimeout(()=>{
+      const tn=document.getElementById('n_'+to);
+      if(tn){tn.classList.remove('active');tn.classList.add('done');
+        const ms=document.getElementById('ms_'+to); if(ms)ms.textContent='✓ '+(en-st).toFixed(2)+'s';}
+    }, en*scale));
+  });
+  // finish
+  timers.push(setTimeout(()=>{
+    running=false;document.getElementById('runBtn').disabled=false;
+    log(tl.total, STAGE===5?'✅ Hoàn tất — memo trả về client (2353 ký tự)':'✅ Hoàn tất — final_answer sẵn sàng', 'FAST');
+  }, tl.total*scale+200));
+}
+
+function setStage(s){
+  STAGE=s;
+  document.getElementById('t4').classList.toggle('active',s===4);
+  document.getElementById('t5').classList.toggle('active',s===5);
+  document.getElementById('optToggleWrap').style.display = s===4?'inline':'none';
+  resetSim();
+}
+
+/* ---- A/B race: baseline 8.09s vs optimized 5.83s (số đo thật) ---- */
+let racing=false;
+function raceAB(){
+  if(racing) return; racing=true;
+  const BASE=8.09, OPT=5.83, MAXT=8.09;
+  const scale=1000/(SPEED||3);
+  const fb=document.getElementById('rf-base'), fo=document.getElementById('rf-opt');
+  const tb=document.getElementById('rt-base'), to=document.getElementById('rt-opt');
+  fb.style.width='0%';fo.style.width='0%';
+  document.getElementById('savedVal').textContent='… đang chạy';
+  let optDone=false;
+  const t0=performance.now();
+  function frame(t){
+    const el=(t-t0)/scale;
+    const kb=Math.min(el,BASE), ko=Math.min(el,OPT);
+    fb.style.width=(kb/MAXT*100).toFixed(1)+'%';
+    fo.style.width=(ko/MAXT*100).toFixed(1)+'%';
+    tb.textContent=kb.toFixed(2)+'s';
+    to.textContent=ko.toFixed(2)+'s';
+    if(!optDone && el>=OPT){optDone=true; to.style.fontWeight='800';}
+    if(el<BASE){requestAnimationFrame(frame);}
+    else{
+      tb.textContent=BASE.toFixed(2)+'s'; to.textContent=OPT.toFixed(2)+'s';
+      document.getElementById('savedVal').innerHTML=`${(BASE-OPT).toFixed(2)}s nhanh hơn (−${Math.round((BASE-OPT)/BASE*100)}%) · ${BASE}s → ${OPT}s`;
+      racing=false;
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---- Hỏi agent thật qua /ask (cần demo_server.py) ---- */
+const NODE_LABEL={
+  analyze_law:'Luật sư trưởng phân tích (Gemini)',
+  check_routing:'Router quyết định cần agent nào',
+  call_tax_specialist:'Tax specialist (ReAct + search_tax)',
+  call_compliance_specialist:'Compliance specialist (ReAct)',
+  aggregate:'Tổng hợp → memo cuối (Gemini)',
+};
+function escapeHtml(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function setQ(el){document.getElementById('qInput').value=el.textContent;}
+
+async function askAgent(){
+  const q=document.getElementById('qInput').value.trim();
+  if(!q){document.getElementById('qInput').focus();return;}
+  if(STAGE!==4) setStage(4);          // live engine = Stage 4 in-process
+  resetSim();
+  const mode=document.getElementById('optChk').checked?'optimized':'baseline';
+  const ans=document.getElementById('answer');
+  ans.style.display='block';
+  ans.innerHTML='<div class="ans-status">⏳ Đang chạy multi-agent thật (Gemini)… có thể mất 5–25 giây.</div>';
+  document.getElementById('askBtn').disabled=true;
+  try{
+    const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,mode})});
+    const d=await r.json();
+    if(d.error){
+      ans.innerHTML=`<div class="ans-err">⚠️ <b>Lỗi khi chạy agent:</b><br>${escapeHtml(d.error).slice(0,400)}<br><br>`+
+        `Nếu là <b>429/quota</b>: free tier Gemini = 20 request/model/ngày — thử lại sau hoặc đổi <code>GEMINI_MODEL</code> trong <code>.env</code>.</div>`;
+      return;
+    }
+    // animate theo timing thật
+    const scale=350/(SPEED>=3?2:1);
+    let last=0;
+    d.timings.forEach(it=>{
+      const st=last; last=it.t;
+      setTimeout(()=>{
+        const n=document.getElementById('n_'+it.node);
+        if(n){n.classList.add('active');
+          setTimeout(()=>{n.classList.remove('active');n.classList.add('done');
+            const ms=document.getElementById('ms_'+it.node);if(ms)ms.textContent='✓ '+it.t+'s';},400);}
+        log(it.t, NODE_LABEL[it.node]||it.node, it.node==='check_routing'?'LLM':'LLM');
+        document.getElementById('clock').textContent=it.t.toFixed(2);
+      }, st*scale);
+    });
+    setTimeout(()=>{
+      let route='';
+      if(d.routing && d.routing.needs_tax!==undefined && d.routing.needs_tax!==null)
+        route=` · routing: tax=${d.routing.needs_tax}, compliance=${d.routing.needs_compliance}`;
+      else route=' · fan-out song song (keyword)';
+      ans.innerHTML=`<div class="ans-meta">✅ Hoàn tất trong <b>${d.total}s</b>${route} · ${d.agents.length} node chạy · mode=${d.mode}</div>`+
+        `<div class="ans-body">${escapeHtml(d.answer)}</div>`;
+      document.getElementById('clock').textContent=d.total.toFixed(2);
+    }, last*scale+500);
+  }catch(e){
+    ans.innerHTML=`<div class="ans-err">⚠️ Không gọi được <code>/ask</code>.<br>Hãy chạy bridge server rồi mở đúng cổng:<br>`+
+      `<code>uv run python demo_server.py</code> → <b>http://localhost:8800</b><br><br>(${escapeHtml(String(e))})</div>`;
+  }finally{
+    document.getElementById('askBtn').disabled=false;
+  }
+}
+
+// init
+buildStage();
+</script>
+</body>
+</html>

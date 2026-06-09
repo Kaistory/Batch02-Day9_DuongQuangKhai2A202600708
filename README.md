@@ -64,7 +64,7 @@ User question
 | Layer | Choice |
 |---|---|
 | Agent framework | [LangGraph](https://langchain-ai.github.io/langgraph/) |
-| LLM provider | Any model via [OpenRouter](https://openrouter.ai) (OpenAI-compatible API) |
+| LLM provider | [Google Gemini](https://ai.google.dev/gemini-api/docs/openai) (OpenAI-compatible endpoint) |
 | A2A transport | [a2a-sdk](https://pypi.org/project/a2a-sdk/) |
 | Registry | FastAPI + in-memory store |
 | Package manager | [uv](https://docs.astral.sh/uv/) |
@@ -107,7 +107,7 @@ Tổng kết & Q&A (15 phút)
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) package manager
-- An [OpenRouter](https://openrouter.ai) API key
+- A [Google Gemini](https://aistudio.google.com/apikey) API key
 
 ### Setup
 
@@ -119,7 +119,7 @@ uv sync
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your OpenRouter API key
+# Edit .env with your Gemini API key (GEMINI_API_KEY)
 ```
 
 ### Run the Full System (Stage 5)
@@ -167,7 +167,7 @@ legal_multiagent/
 ├── .env.example               # Required environment variables
 │
 ├── common/                    # Shared utilities
-│   ├── llm.py                 # get_llm() → ChatOpenAI via OpenRouter
+│   ├── llm.py                 # get_llm() → ChatOpenAI via Gemini (OpenAI-compatible)
 │   ├── a2a_client.py          # delegate() — A2A message sending
 │   └── registry_client.py     # discover() / register() — Registry API
 │
@@ -195,11 +195,12 @@ Each agent module follows the same structure:
 
 | Environment Variable | Description | Default |
 |---|---|---|
-| `OPENROUTER_API_KEY` | Your OpenRouter API key | (required) |
-| `OPENROUTER_MODEL` | Model identifier | `anthropic/claude-sonnet-4-5` |
+| `GEMINI_API_KEY` | Your Google Gemini API key (from https://aistudio.google.com/apikey) | (required) |
+| `GEMINI_MODEL` | Model identifier | `gemini-2.0-flash` |
+| `GEMINI_MAX_TOKENS` | Max completion tokens (raise for `gemini-2.5-flash` thinking) | `1024` |
 | `REGISTRY_URL` | Registry service URL | `http://localhost:10000` |
 
-The model is swappable to any OpenRouter-supported model (e.g., `openai/gpt-4o`, `google/gemini-2.0-flash`).
+The model is swappable to any Gemini model (e.g., `gemini-2.5-flash`, `gemini-2.5-pro`). `get_llm()` uses Gemini's OpenAI-compatible endpoint, so switching providers means changing only `common/llm.py` + `.env`.
 
 ## Documentation Diagrams
 
